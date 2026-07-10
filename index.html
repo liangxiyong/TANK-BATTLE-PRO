@@ -7588,36 +7588,72 @@ const SaveSystem = {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const data = JSON.parse(e.target.result);
-        if (!data.version) {
+        const saveFile = JSON.parse(e.target.result);
+        if (!saveFile.version) {
           spawnFloatingTextNotify('无效的存档文件', '#e94560');
+          showOverlay('ov-main');
           return;
         }
+        let data = saveFile;
+        let hasNestedData = false;
+        if (saveFile.data && typeof saveFile.data === 'object') {
+          data = saveFile.data;
+          hasNestedData = true;
+        }
         showConfirm('导入存档', '导入存档将覆盖当前数据，确定继续?', () => {
-          Storage.data.settings = data.settings || Storage.data.settings;
-          Storage.data.keybinds = data.keybinds || Storage.data.keybinds;
-          Storage.data.achievements = data.achievements || Storage.data.achievements;
-          Storage.data.highScore = data.highScore || Storage.data.highScore;
-          Storage.data.highLevel = data.highLevel || Storage.data.highLevel;
-          Storage.data.totalKills = data.totalKills || Storage.data.totalKills;
-          Storage.data.leaderboard = data.leaderboard || Storage.data.leaderboard;
-          Storage.save();
-          if (data.growth) Object.assign(GrowthSystem.data, data.growth);
-          if (data.advancedSettings) Object.assign(AdvancedSettings.data, data.advancedSettings);
-          if (data.maps) MapEditor.maps = data.maps;
-          if (data.shopOwned) AchievementShop.owned = data.shopOwned;
-          if (data.customize) Object.assign(TankCustomizer.data, data.customize);
-          GrowthSystem.save();
-          AdvancedSettings.save();
-          MapEditor.saveMaps();
-          AchievementShop.save();
-          TankCustomizer.save();
-          showAchievementNotify('存档导入成功');
-          SaveSystem.render();
-          showOverlay('ov-saveimport');
+          let importedCount = 0;
+          try {
+            if (hasNestedData) {
+              try { if (data.tankbattle_save) { const saveData = JSON.parse(data.tankbattle_save); Storage.data.username = saveData.username || Storage.data.username; Storage.data.settings = saveData.settings || Storage.data.settings; Storage.data.keybinds = saveData.keybinds || Storage.data.keybinds; Storage.data.highScore = saveData.highScore || Storage.data.highScore; Storage.data.highLevel = saveData.highLevel || Storage.data.highLevel; Storage.data.totalKills = saveData.totalKills || Storage.data.totalKills; Storage.data.leaderboard = saveData.leaderboard || Storage.data.leaderboard; importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_achv) { Storage.data.achievements = JSON.parse(data.tankbattle_achv); importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_growth) { Object.assign(GrowthSystem.data, JSON.parse(data.tankbattle_growth)); importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_advanced_settings) { Object.assign(AdvancedSettings.data, JSON.parse(data.tankbattle_advanced_settings)); importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_custom_maps) { MapEditor.maps = JSON.parse(data.tankbattle_custom_maps); importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_shop_owned) { AchievementShop.owned = JSON.parse(data.tankbattle_shop_owned); importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_customize) { Object.assign(TankCustomizer.data, JSON.parse(data.tankbattle_customize)); importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_soundpack) { const spData = JSON.parse(data.tankbattle_soundpack); SoundPackSystem.currentPack = spData.currentPack || spData.pack || 'classic'; importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_mods) { ModSystem.mods = JSON.parse(data.tankbattle_mods); importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_active_mods) { ModSystem.activeMods = JSON.parse(data.tankbattle_active_mods); importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_replays) { ReplaySystem.records = JSON.parse(data.tankbattle_replays); importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_missions) { const missionData = JSON.parse(data.tankbattle_missions); MissionSystem.progress = missionData.progress || missionData; MissionSystem.lastReset = missionData.lastReset || ''; importedCount++; } } catch(e) {}
+              try { if (data.tankbattle_skills) { Object.assign(game.skills, JSON.parse(data.tankbattle_skills)); importedCount++; } } catch(e) {}
+            } else {
+              Storage.data.settings = data.settings || Storage.data.settings;
+              Storage.data.keybinds = data.keybinds || Storage.data.keybinds;
+              Storage.data.achievements = data.achievements || Storage.data.achievements;
+              Storage.data.highScore = data.highScore || Storage.data.highScore;
+              Storage.data.highLevel = data.highLevel || Storage.data.highLevel;
+              Storage.data.totalKills = data.totalKills || Storage.data.totalKills;
+              Storage.data.leaderboard = data.leaderboard || Storage.data.leaderboard;
+              if (data.growth) Object.assign(GrowthSystem.data, data.growth);
+              if (data.advancedSettings) Object.assign(AdvancedSettings.data, data.advancedSettings);
+              if (data.maps) MapEditor.maps = data.maps;
+              if (data.shopOwned) AchievementShop.owned = data.shopOwned;
+              if (data.customize) Object.assign(TankCustomizer.data, data.customize);
+              importedCount = 6;
+            }
+            Storage.save();
+            GrowthSystem.save();
+            AdvancedSettings.save();
+            MapEditor.saveMaps();
+            AchievementShop.save();
+            TankCustomizer.save();
+            SoundPackSystem.save();
+            ModSystem.save();
+            game.skin = Storage.data.settings.skin || 'classic';
+            game.difficulty = Storage.data.settings.difficulty || 'normal';
+            game.mode = Storage.data.settings.mode || 'classic';
+            game.players = Storage.data.settings.players || 1;
+            spawnFloatingTextNotify('存档导入成功 (' + importedCount + '项)', '#27ae60');
+          } catch(e) {
+            spawnFloatingTextNotify('导入失败: ' + e.message, '#e94560');
+          } finally {
+            showOverlay('ov-main');
+          }
         });
       } catch(e) {
-        spawnFloatingTextNotify('存档解析失败', '#e94560');
+        spawnFloatingTextNotify('存档解析失败: ' + e.message, '#e94560');
+        showOverlay('ov-main');
       }
     };
     reader.readAsText(file);
