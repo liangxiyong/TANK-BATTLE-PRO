@@ -1,2 +1,0 @@
-# TANK-BATTLE-PRO
-abc
